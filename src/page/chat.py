@@ -23,10 +23,12 @@ from main import agent_init
 
 
 
-@st.fragment
 def load_chat_page(agent):
     """Load the chat page with the agent and configurations."""
 
+    st.title("Ask Questions About Your PDF")
+
+    
 
     if "chat_history" not in st.session_state:
         st.session_state.chat_history = []
@@ -39,8 +41,7 @@ def load_chat_page(agent):
             with st.chat_message("assistant"):
                 st.markdown(message.content)
 
-    st.title("Ask Questions About Your PDF")
-    query = st.text_input("Enter your question:")
+    query = st.chat_input("Enter your question:")
 
     if query:
         st.chat_message("user").markdown(query)

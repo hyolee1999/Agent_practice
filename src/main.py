@@ -49,56 +49,57 @@ def agent_init():
     )
     return agent
 
-    # st.title("PDF Chat")
-    # uploaded_file = st.file_uploader("Choose a PDF", type=["pdf"])
+st.title("PDF Chat")
+uploaded_file = st.file_uploader("Choose a PDF", type=["pdf"])
 
-    # if uploaded_file is not None:
+if uploaded_file is not None:
 
-    #     # file_bytes = uploaded_file.read()
+    # file_bytes = uploaded_file.read()
 
-    #     # pages = raw_to_documents(file_bytes)
+    # pages = raw_to_documents(file_bytes)
 
-    #     with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as tmp:
-    #         tmp.write(uploaded_file.read())
-    #         pdf_path = tmp.name
+    with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as tmp:
+        tmp.write(uploaded_file.read())
+        pdf_path = tmp.name
 
-    #     st.session_state["pdf_path"] = pdf_path
-    #     st.success(f"Selected: {pdf_path}")
-    #     st.write(pdf_path)
+    st.session_state["pdf_path"] = pdf_path
+    st.success(f"Selected: {pdf_path}")
+    st.write(pdf_path)
 
-    #     # ------------------------------------------------------------
-    #     # 5️⃣  Index the PDF – load, chunk semantically, and store.
-    #     # ------------------------------------------------------------
-    #     with st.spinner("Indexing PDF…"):
-    #         index_pdf_documents(
-    #             pdf_path=pdf_path,
-    #             _vector_store=qdrant,
-    #             dense_embeddings=dense_embeddings
-    #         )
-    #         print("PDF indexed successfully.")
+    # ------------------------------------------------------------
+    # 5️⃣  Index the PDF – load, chunk semantically, and store.
+    # ------------------------------------------------------------
+    with st.spinner("Indexing PDF…"):
+        index_pdf_documents(
+            pdf_path=pdf_path
+        )
+        print("PDF indexed successfully.")
 
-    #     for message in st.session_state.chat_history:
-    #         if isinstance(message, HumanMessage):
-    #             with st.chat_message("user"):
-    #                 st.markdown(message.content)
-    #         elif isinstance(message, AIMessage):
-    #             with st.chat_message("assistant"):
-    #                 st.markdown(message.content)
+    if "chat_history" not in st.session_state:
+        st.session_state.chat_history = []
 
-    #     user_query = st.chat_input("Ask a question about the uploaded PDF")
-    #     if user_query:
-    #         st.chat_message("user").write(user_query)
-    #         st.session_state.chat_history.append(HumanMessage(content=user_query))
+    for message in st.session_state.chat_history:
+        if isinstance(message, HumanMessage):
+            with st.chat_message("user"):
+                st.markdown(message.content)
+        elif isinstance(message, AIMessage):
+            with st.chat_message("assistant"):
+                st.markdown(message.content)
 
-    #         with st.chat_message("assistant"):
-    #             placeholder = st.empty()
-    #             full_response = ""
+    user_query = st.chat_input("Ask a question about the uploaded PDF")
+    if user_query:
+        st.chat_message("user").write(user_query)
+        st.session_state.chat_history.append(HumanMessage(content=user_query))
 
-    #             for token in stream(user_query, agent, config):
-    #                 full_response += token
-    #                 placeholder.markdown(full_response + "▌")
+        with st.chat_message("assistant"):
+            placeholder = st.empty()
+            full_response = ""
 
-    #             placeholder.markdown(full_response)
-    #             st.session_state.chat_history.append(AIMessage(content=full_response))
+            for token in stream(user_query, agent_init()):
+                full_response += token
+                placeholder.markdown(full_response + "▌")
+
+            placeholder.markdown(full_response)
+            st.session_state.chat_history.append(AIMessage(content=full_response))
 
 

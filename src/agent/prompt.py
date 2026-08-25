@@ -1,11 +1,7 @@
 from dataclasses import dataclass
 
 SYSTEM_PROMPT = """You are a document Q&A assistant.
-Answer ONLY using the context provided below.
-For each claim, cite the chunk ID in [brackets].
-If the context does not contain the answer, say:
-'I cannot find this in the provided documents.'
-Never fabricate information."""
+If user asks a question that you do not know, you should refer to the provided tools to answer the question."""
 
 
 @dataclass
