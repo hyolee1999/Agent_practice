@@ -62,7 +62,6 @@ def generate(query: str, agent) -> str:
         config = config
     )
 
-    print("Message: " +result["messages"][-1].content)
     return result["messages"][-1].content
 
 def stream(query: str, agent ) -> Generator[str, None, None]:

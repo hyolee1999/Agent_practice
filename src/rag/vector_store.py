@@ -1,3 +1,4 @@
+from dotenv import load_dotenv
 from langchain_core.documents import Document
 from langchain_qdrant import QdrantVectorStore, RetrievalMode
 from qdrant_client import QdrantClient, models
@@ -10,9 +11,16 @@ from ingestion.chunker import semantic_chunker
 from rag.embeddings import sparse_embeddings, dense_embeddings
 import streamlit as st
 
+import os
+
+load_dotenv()
+
+QDRANT_URL = os.getenv("QDRANT_URL")
+QDRANT_API_KEY = os.getenv("QDRANT_API_KEY")
+
 
 # Create a single Qdrant client that will be reused for both retrieval and indexing.
-client = QdrantClient(url="http://localhost:6333")
+client = QdrantClient(url=QDRANT_URL, api_key=QDRANT_API_KEY)
 
 
 
