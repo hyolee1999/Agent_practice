@@ -45,7 +45,7 @@ from langchain_core.messages import AIMessageChunk
 #     response_format=ResponseFormat
 # )
 
-config = {'configurable':{'thread_id':1}}
+config = {'configurable':{'thread_id':'1'}}
 
 
 def generate(query: str, agent) -> str:
@@ -61,7 +61,9 @@ def generate(query: str, agent) -> str:
         },
         config = config
     )
-    return result
+
+    print("Message: " +result["messages"][-1].content)
+    return result["messages"][-1].content
 
 def stream(query: str, agent ) -> Generator[str, None, None]:
     """Stream the answer to the query using the agent."""
@@ -80,6 +82,8 @@ def stream(query: str, agent ) -> Generator[str, None, None]:
         version = "v2"
     ):
         # print(chunk)
+
+        print(config['configurable']['thread_id'])
         if chunk["type"] == "messages":
             token, metadata = chunk["data"]
             if token.content_blocks and isinstance(token, AIMessageChunk):

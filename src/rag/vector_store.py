@@ -53,7 +53,7 @@ def retriever_init(collection_name) -> QdrantVectorStore:
         # If ``dimensions`` is missing, we fall back to a sensible default that
         # matches the default OpenAI embedding model (text‑embedding‑3‑large → 3072).
         if getattr(dense_embeddings, "dimensions", None) is None:
-            _dense_dim: int = 3072
+            _dense_dim: int = 768
         else:
             _dense_dim = int(dense_embeddings.dimensions)
 
