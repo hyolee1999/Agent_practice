@@ -54,7 +54,7 @@ def retriever_init(collection_name) -> QdrantVectorStore:
             sparse_vector_name="sparse",
             url=QDRANT_URL,
             api_key=QDRANT_API_KEY,
-            validate_collection_config=True)
+            validate_collection_config=False)
 
         # qdrant = QdrantVectorStore(
         #     client=client,
