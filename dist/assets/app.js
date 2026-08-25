@@ -215,7 +215,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
       for (const line of lines) {
         if (line.startsWith('data:')) {
-          let content = line.startsWith('data: ') ? line.slice(6) : line.slice(5);
+          // let content = line.startsWith('data: ') ? line.slice(6) : line.slice(5);
+          let content = line.slice(5);
           if (content.trim() === '[DONE]') continue;
           try {
             const parsed = JSON.parse(content);
