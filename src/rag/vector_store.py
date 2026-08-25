@@ -45,23 +45,26 @@ def retriever_init(collection_name) -> QdrantVectorStore:
         # and a sparse vector named "sparse" (as created below). Explicitly
         # provide these names so that QdrantVectorStore validates correctly.
 
-        # qdrant = QdrantVectorStore.from_existing_collection(
-        #     collection_name=collection_name,
-        #     embedding=dense_embeddings,
-        #     sparse_embedding=sparse_embeddings,
-        #     retrieval_mode=RetrievalMode.HYBRID,
-        #     vector_name="dense",
-        #     sparse_vector_name="sparse"        )
-
-        qdrant = QdrantVectorStore(
-            client=client,
+        qdrant = QdrantVectorStore.from_existing_collection(
             collection_name=collection_name,
             embedding=dense_embeddings,
             sparse_embedding=sparse_embeddings,
             retrieval_mode=RetrievalMode.HYBRID,
             vector_name="dense",
             sparse_vector_name="sparse",
-        )
+            validate_collection = False,
+            url=QDRANT_URL,
+            api_key=QDRANT_API_KEY)
+
+        # qdrant = QdrantVectorStore(
+        #     client=client,
+        #     collection_name=collection_name,
+        #     embedding=dense_embeddings,
+        #     sparse_embedding=sparse_embeddings,
+        #     retrieval_mode=RetrievalMode.HYBRID,
+        #     vector_name="dense",
+        #     sparse_vector_name="sparse",
+        # )
 
     else:
         # Determine the correct size for dense vectors.
