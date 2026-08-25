@@ -131,7 +131,7 @@ document.addEventListener('DOMContentLoaded', () => {
   clearChatBtn.addEventListener('click', async () => {
     if (isGenerating) return;
     try {
-      await fetch('/api/clear', { method: 'POST' }).catch(() => {});
+      await fetch('/api/clear', { method: 'POST' }).catch(() => { });
       messagesContainer.innerHTML = '';
       messagesContainer.appendChild(welcomeContainer);
       welcomeContainer.style.display = 'flex';
@@ -204,20 +204,28 @@ document.addEventListener('DOMContentLoaded', () => {
     let accumulatedText = '';
     let isFirstChunk = true;
 
+    let buffer = '';
     while (true) {
       const { done, value } = await reader.read();
       if (done) break;
 
-      const chunk = decoder.decode(value, { stream: true });
-      // SSE format may be raw text or 'data: ...'
-      const lines = chunk.split('\n');
+      buffer += decoder.decode(value, { stream: true });
+      const lines = buffer.split('\n');
+      buffer = lines.pop() || '';
+
       for (const line of lines) {
-        if (line.startsWith('data: ')) {
-          const content = line.replace(/^data:\s*/, '');
-          if (content === '[DONE]') continue;
+        if (line.startsWith('data:')) {
+          let content = line.startsWith('data: ') ? line.slice(6) : line.slice(5);
+          if (content.trim() === '[DONE]') continue;
+          try {
+            const parsed = JSON.parse(content);
+            const text = parsed.text ?? parsed.content;
+            if (typeof text === 'string') {
+              accumulatedText += text;
+              continue;
+            }
+          } catch { }
           accumulatedText += content;
-        } else if (line.trim()) {
-          accumulatedText += line;
         }
       }
 

@@ -5,18 +5,19 @@ import asyncio
 from pathlib import Path
 from typing import AsyncGenerator
 
+# Ensure 'src' is available in Python path
+ROOT_DIR = Path(__file__).resolve().parent.parent
+SRC_DIR = ROOT_DIR / "src"
+if str(SRC_DIR) not in sys.path:
+    sys.path.insert(0, str(SRC_DIR))
+
 from dotenv import load_dotenv
 from fastapi import FastAPI, File, UploadFile, HTTPException, Body
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
-
-# Ensure 'src' is available in Python path
-ROOT_DIR = Path(__file__).resolve().parent.parent
-SRC_DIR = ROOT_DIR / "src"
-if str(SRC_DIR) not in sys.path:
-    sys.path.insert(0, str(SRC_DIR))
+from main import agent_init
 
 load_dotenv()
 
@@ -35,6 +36,15 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+@app.middleware("http")
+async def add_no_cache_headers(request, call_next):
+    response = await call_next(request)
+    if request.url.path.startswith("/assets") or request.url.path == "/":
+        response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
+        response.headers["Pragma"] = "no-cache"
+        response.headers["Expires"] = "0"
+    return response
+
 # Request Models
 class ChatRequest(BaseModel):
     query: str
@@ -46,7 +56,7 @@ class ChatResponse(BaseModel):
 
 
 # Optional: Lazy load or initialize RAG components from src/
-agent_instance = None
+agent_instance = agent_init()
 
 def get_or_create_agent():
     """Initializes LangChain/LangGraph agent from existing project modules."""
