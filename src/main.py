@@ -19,6 +19,7 @@ from retrieval.retriever import retriever_init, index_pdf_documents
 from generate.prompt import SYSTEM_PROMPT, ResponseFormat
 from generate.llm import generate, stream
 from uuid import uuid4
+from langchain_core.messages import HumanMessage, AIMessage, SystemMessage
 
 load_dotenv()
      
@@ -80,13 +81,24 @@ if uploaded_file is not None:
     with st.spinner("Indexing PDF…"):
         index_pdf_documents(
             pdf_path=pdf_path,
-            vector_store=qdrant,
+            _vector_store=qdrant,
             dense_embeddings=dense_embeddings
         )
+        print("PDF indexed successfully.")
+
+    for message in st.session_state.chat_history:
+        if isinstance(message, HumanMessage):
+            with st.chat_message("user"):
+                st.markdown(message.content)
+        elif isinstance(message, AIMessage):
+            with st.chat_message("assistant"):
+                st.markdown(message.content)
 
     user_query = st.chat_input("Ask a question about the uploaded PDF")
     if user_query:
         st.chat_message("user").write(user_query)
+        st.session_state.chat_history.append(HumanMessage(content=user_query))
+
         with st.chat_message("assistant"):
             placeholder = st.empty()
             full_response = ""
@@ -96,5 +108,6 @@ if uploaded_file is not None:
                 placeholder.markdown(full_response + "▌")
 
             placeholder.markdown(full_response)
+            st.session_state.chat_history.append(AIMessage(content=full_response))
         # st.chat_message("assistant").write("I will answer this after connecting your retriever.")
 
