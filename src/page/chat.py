@@ -54,6 +54,8 @@ def load_chat_page(agent):
             for token in stream(query, agent):
                 full_response += token
                 placeholder.markdown(full_response + "▌")
+            
+            # full_response = generate(query, agent)
 
             placeholder.markdown(full_response)
             st.session_state.chat_history.append(AIMessage(content=full_response))

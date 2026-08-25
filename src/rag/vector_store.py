@@ -1,3 +1,4 @@
+from dotenv import load_dotenv
 from langchain_core.documents import Document
 from langchain_qdrant import QdrantVectorStore, RetrievalMode
 from qdrant_client import QdrantClient, models
@@ -10,9 +11,16 @@ from ingestion.chunker import semantic_chunker
 from rag.embeddings import sparse_embeddings, dense_embeddings
 import streamlit as st
 
+import os
+
+load_dotenv()
+
+QDRANT_URL = os.getenv("QDRANT_URL")
+QDRANT_API_KEY = os.getenv("QDRANT_API_KEY")
+
 
 # Create a single Qdrant client that will be reused for both retrieval and indexing.
-client = QdrantClient(url="http://localhost:6333")
+client = QdrantClient(url=QDRANT_URL, api_key=QDRANT_API_KEY)
 
 
 
@@ -43,19 +51,14 @@ def retriever_init(collection_name) -> QdrantVectorStore:
             sparse_embedding=sparse_embeddings,
             retrieval_mode=RetrievalMode.HYBRID,
             vector_name="dense",
-            sparse_vector_name="sparse"        )
+            sparse_vector_name="sparse",
+            url=QDRANT_URL,
+            api_key=QDRANT_API_KEY,
+            validate_collection_config=False)
 
     else:
         # Determine the correct size for dense vectors.
-        # ``OpenAIEmbeddings`` (and many other LangChain embeddings) may not expose a
-        # ``dimensions`` attribute, resulting in ``None`` and causing a ``pydantic``
-        # validation error when creating the Qdrant collection.
-        # If ``dimensions`` is missing, we fall back to a sensible default that
-        # matches the default OpenAI embedding model (text‑embedding‑3‑large → 3072).
-        if getattr(dense_embeddings, "dimensions", None) is None:
-            _dense_dim: int = 3072
-        else:
-            _dense_dim = int(dense_embeddings.dimensions)
+        _dense_dim = len(dense_embeddings.embed_query("test"))
 
         client.create_collection(
             collection_name=collection_name,
