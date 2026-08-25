@@ -18,7 +18,7 @@ from dotenv import load_dotenv
 from retrieval.retriever import retriever_init, index_pdf_documents
 from generate.prompt import SYSTEM_PROMPT, ResponseFormat
 from generate.llm import generate, stream
-
+from uuid import uuid4
 
 load_dotenv()
      
@@ -26,32 +26,34 @@ load_dotenv()
 sparse_embeddings = FastEmbedSparse(model_name="Qdrant/bm25")
 dense_embeddings = OpenAIEmbeddings(model="text-embedding-3-large")
 
-model = init_chat_model(model="openai:gpt-5.5", temperature=0.1)
-
+model = init_chat_model(model="gpt-5.5", temperature=0.1)
 checkpointer = InMemorySaver()
 
-config = {'configurable': {'thread_id': 1}}
+config = {'configurable': {'thread_id': str(uuid4())}}
 
 # Create a single Qdrant client that will be reused for both retrieval and indexing.
 qdrant_client = QdrantClient(url="http://localhost:6333")
 
-retriever_tool = retriever_init(
+qdrant = retriever_init(
     client=qdrant_client,
     collection_name="document_collection",
     sparse_embeddings=sparse_embeddings,
     dense_embeddings=dense_embeddings,
 )
 
-# vector_retriever = vector_store.as_retriever(search_kwargs={"top_k": 4})
+retriever = qdrant.as_retriever(search_kwargs={"k": 1})
 
-# retriever_tool = create_retriever_tool(vector_retriever, "document_retriever", description = "Search for relevant documents to answer user questions")
+retriever_tool = create_retriever_tool(
+    retriever,
+    "document_retriever",
+    description="Search for relevant documents to answer user questions",
+)
 
 agent = create_agent(
     model=model,
     tools=[retriever_tool],
     system_prompt=SYSTEM_PROMPT,
-    checkpointer=checkpointer,
-    response_format=ResponseFormat
+    checkpointer=checkpointer
 )
 
 
@@ -78,10 +80,8 @@ if uploaded_file is not None:
     with st.spinner("Indexing PDF…"):
         index_pdf_documents(
             pdf_path=pdf_path,
-            client=qdrant_client,
-            collection_name="document_collection",
-            sparse_embeddings=sparse_embeddings,
-            dense_embeddings=dense_embeddings,
+            vector_store=qdrant,
+            dense_embeddings=dense_embeddings
         )
 
     user_query = st.chat_input("Ask a question about the uploaded PDF")
@@ -91,14 +91,10 @@ if uploaded_file is not None:
             placeholder = st.empty()
             full_response = ""
 
-            # for token in stream(user_query, agent, config):
-            #     full_response += token
-            #     placeholder.markdown(full_response + "▌")
+            for token in stream(user_query, agent, config):
+                full_response += token
+                placeholder.markdown(full_response + "▌")
 
-            full_response = generate(user_query, agent, config)
-
-
-            print("Test Test Test")
-            print("Response: ", full_response)
             placeholder.markdown(full_response)
         # st.chat_message("assistant").write("I will answer this after connecting your retriever.")
+

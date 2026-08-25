@@ -13,6 +13,7 @@ from qdrant_client import QdrantClient, models
 from fastembed.sparse.sparse_text_embedding import SparseTextEmbedding
 from ingestion.ingestion_manager import raw_to_documents
 from langchain_core.documents import Document
+from langchain_core.messages import AIMessageChunk
 
 
 
@@ -51,7 +52,7 @@ def generate(query: str, agent, config) -> str:
     """Generate an answer to the query using the agent."""  
     result = agent.invoke(
         {
-            'message':[
+            'messages':[
                 {
                     'role':'user',
                     'content': query
@@ -67,7 +68,7 @@ def stream(query: str, agent, config ) -> Generator[str, None, None]:
 
     for chunk in agent.stream(
         {
-            'message':[
+            'messages':[
                 {
                     'role':'user',
                     'content': query
@@ -78,11 +79,14 @@ def stream(query: str, agent, config ) -> Generator[str, None, None]:
         stream_mode = "messages",
         version = "v2"
     ):
-        print("Chunk: ", chunk)
-        if chunk["type"] == "message":
-            token, metatda = chunk["data"]
-            if token.content_blocks:
-                yield token.content_blocks[0].text
+        # print(chunk)
+        if chunk["type"] == "messages":
+            token, metadata = chunk["data"]
+            if token.content_blocks and isinstance(token, AIMessageChunk):
+                if "text" in token.content_blocks[0]:
+                    
+                    yield token.content_blocks[0]["text"]
+                yield ""  # Yield a space to indicate continuation
             yield ""  # Yield a space to indicate continuation
 
 

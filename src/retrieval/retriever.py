@@ -7,6 +7,7 @@ from langchain_core.tools import create_retriever_tool
 # Local ingestion helpers for loading PDFs and semantic chunking
 from ingestion.pdf_loader import load_pdf
 from ingestion.chunker import semantic_chunker
+
 # from abc import ABC, abstractmethod
 
 # class Retriever(ABC):
@@ -52,9 +53,7 @@ def retriever_init(client, collection_name, sparse_embeddings, dense_embeddings)
             sparse_embedding=sparse_embeddings,
             retrieval_mode=RetrievalMode.HYBRID,
             vector_name="dense",
-            sparse_vector_name="sparse",
-            validate_collection_config=False
-        )
+            sparse_vector_name="sparse"        )
 
     else:
         # Determine the correct size for dense vectors.
@@ -88,23 +87,15 @@ def retriever_init(client, collection_name, sparse_embeddings, dense_embeddings)
             sparse_vector_name="sparse",
         )
 
-    retriever = qdrant.as_retriever(search_kwargs={"k": 4})
-
-    return create_retriever_tool(
-        retriever,
-        "document_retriever",
-        description="Search for relevant documents to answer user questions",
-    )
+    return qdrant
 
 # ---------------------------------------------------------------------------
 # Helper: load a PDF, split it into semantic chunks, and index those chunks.
 # ---------------------------------------------------------------------------
 def index_pdf_documents(
     pdf_path: str,
-    client: QdrantClient,
-    collection_name: str,
-    sparse_embeddings,
-    dense_embeddings,
+    vector_store: QdrantVectorStore,
+    dense_embeddings
 ) -> None:
     """Load a PDF, create semantic chunks and add them to Qdrant.
 
@@ -116,39 +107,40 @@ def index_pdf_documents(
     # 1️⃣ Load the PDF into a list of Document objects.
     docs: list[Document] = load_pdf(pdf_path)
 
-    # 2️⃣ Create semantic chunks with the dense embeddings.
-    chunks: list[Document] = semantic_chunker(docs, dense_embeddings)
 
-    # 3️⃣ Ensure the Qdrant collection exists (reuse logic from ``retriever_init``).
-    if client.collection_exists(collection_name=collection_name):
-        vector_store = QdrantVectorStore.from_existing_collection(
-            collection_name=collection_name,
-            embedding=dense_embeddings,
-            sparse_embedding=sparse_embeddings,
-            retrieval_mode=RetrievalMode.HYBRID,
-            vector_name="dense",
-            sparse_vector_name="sparse",
-            validate_collection_config=False,
-        )
-    else:
-        dense_dim = getattr(dense_embeddings, "dimensions", None) or 3072
-        client.create_collection(
-            collection_name=collection_name,
-            vectors_config={"dense": models.VectorParams(size=int(dense_dim), distance=models.Distance.COSINE)},
-            sparse_vectors_config={"sparse": models.SparseVectorParams()},
-        )
-        vector_store = QdrantVectorStore(
-            client=client,
-            collection_name=collection_name,
-            embedding=dense_embeddings,
-            sparse_embedding=sparse_embeddings,
-            retrieval_mode=RetrievalMode.HYBRID,
-            vector_name="dense",
-            sparse_vector_name="sparse",
-        )
+    # # 2️⃣ Create semantic chunks with the dense embeddings.
+    # chunks: list[Document] = semantic_chunker(docs, dense_embeddings)
+
+    # # 3️⃣ Ensure the Qdrant collection exists (reuse logic from ``retriever_init``).
+    # if client.collection_exists(collection_name=collection_name):
+    #     vector_store = QdrantVectorStore.from_existing_collection(
+    #         collection_name=collection_name,
+    #         embedding=dense_embeddings,
+    #         sparse_embedding=sparse_embeddings,
+    #         retrieval_mode=RetrievalMode.HYBRID,
+    #         vector_name="dense",
+    #         sparse_vector_name="sparse",
+    #         validate_collection_config=False,
+    #     )
+    # else:
+    #     dense_dim = getattr(dense_embeddings, "dimensions", None) or 3072
+    #     client.create_collection(
+    #         collection_name=collection_name,
+    #         vectors_config={"dense": models.VectorParams(size=int(dense_dim), distance=models.Distance.COSINE)},
+    #         sparse_vectors_config={"sparse": models.SparseVectorParams()},
+    #     )
+    #     vector_store = QdrantVectorStore(
+    #         client=client,
+    #         collection_name=collection_name,
+    #         embedding=dense_embeddings,
+    #         sparse_embedding=sparse_embeddings,
+    #         retrieval_mode=RetrievalMode.HYBRID,
+    #         vector_name="dense",
+    #         sparse_vector_name="sparse",
+    #     )
 
     # 4️⃣ Index the semantic chunks.
-    index_documents(vector_store, chunks)
+    index_documents(vector_store, docs)
 
 def index_documents(vector_store: QdrantVectorStore, documents: list[Document]):
     """Index documents into the Qdrant collection."""
