@@ -52,9 +52,9 @@ def retriever_init(collection_name) -> QdrantVectorStore:
             retrieval_mode=RetrievalMode.HYBRID,
             vector_name="dense",
             sparse_vector_name="sparse",
-            validate_collection = False,
             url=QDRANT_URL,
-            api_key=QDRANT_API_KEY)
+            api_key=QDRANT_API_KEY,
+            validate_collection_config=True)
 
         # qdrant = QdrantVectorStore(
         #     client=client,
