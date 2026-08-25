@@ -80,9 +80,7 @@ def stream(query: str, agent ) -> Generator[str, None, None]:
         stream_mode = "messages",
         version = "v2"
     ):
-        # print(chunk)
 
-        print(config['configurable']['thread_id'])
         if chunk["type"] == "messages":
             token, metadata = chunk["data"]
             if token.content_blocks and isinstance(token, AIMessageChunk):

@@ -56,27 +56,9 @@ def retriever_init(collection_name) -> QdrantVectorStore:
             api_key=QDRANT_API_KEY,
             validate_collection_config=False)
 
-        # qdrant = QdrantVectorStore(
-        #     client=client,
-        #     collection_name=collection_name,
-        #     embedding=dense_embeddings,
-        #     sparse_embedding=sparse_embeddings,
-        #     retrieval_mode=RetrievalMode.HYBRID,
-        #     vector_name="dense",
-        #     sparse_vector_name="sparse",
-        # )
-
     else:
         # Determine the correct size for dense vectors.
-        # ``OpenAIEmbeddings`` (and many other LangChain embeddings) may not expose a
-        # ``dimensions`` attribute, resulting in ``None`` and causing a ``pydantic``
-        # validation error when creating the Qdrant collection.
-        # If ``dimensions`` is missing, we fall back to a sensible default that
-        # matches the default OpenAI embedding model (text‑embedding‑3‑large → 3072).
-        if getattr(dense_embeddings, "dimensions", None) is None:
-            _dense_dim: int = 768
-        else:
-            _dense_dim = int(dense_embeddings.dimensions)
+        _dense_dim = len(dense_embeddings.embed_query("test"))
 
         client.create_collection(
             collection_name=collection_name,
