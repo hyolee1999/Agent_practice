@@ -8,54 +8,46 @@ from langchain_core.tools import create_retriever_tool
 from dataclasses import dataclass
 from langgraph.checkpoint.memory import InMemorySaver
 from dotenv import load_dotenv
-from langchain_qdrant import FastEmbedSparse
-from langchain_openai import OpenAIEmbeddings
+from rag.embeddings import sparse_embeddings, dense_embeddings
 from qdrant_client import QdrantClient, models
 from fastembed.sparse.sparse_text_embedding import SparseTextEmbedding
-from ingestion.ingestion_manager import raw_to_documents
 from langchain_core.documents import Document
 from dotenv import load_dotenv
-from retrieval.retriever import retriever_init, index_pdf_documents
-from generate.prompt import SYSTEM_PROMPT, ResponseFormat
-from generate.llm import generate, stream
+from rag.vector_store import retriever_init, index_pdf_documents, client
+from agent.prompt import SYSTEM_PROMPT, ResponseFormat
+from agent.llm import generate, stream
 from uuid import uuid4
+from langchain_core.messages import HumanMessage, AIMessage
 
 load_dotenv()
      
 
-sparse_embeddings = FastEmbedSparse(model_name="Qdrant/bm25")
-dense_embeddings = OpenAIEmbeddings(model="text-embedding-3-large")
+def agent_init():
 
-model = init_chat_model(model="gpt-5.5", temperature=0.1)
-checkpointer = InMemorySaver()
+    model = init_chat_model(model="gpt-5.5", temperature=0.1)
+    checkpointer = InMemorySaver()
 
-config = {'configurable': {'thread_id': str(uuid4())}}
+    config = {'configurable': {'thread_id': str(uuid4())}}
 
-# Create a single Qdrant client that will be reused for both retrieval and indexing.
-qdrant_client = QdrantClient(url="http://localhost:6333")
+    qdrant = retriever_init(
+        collection_name="document_collection"
+    )
 
-qdrant = retriever_init(
-    client=qdrant_client,
-    collection_name="document_collection",
-    sparse_embeddings=sparse_embeddings,
-    dense_embeddings=dense_embeddings,
-)
+    retriever = qdrant.as_retriever(search_kwargs={"k": 1})
 
-retriever = qdrant.as_retriever(search_kwargs={"k": 1})
+    retriever_tool = create_retriever_tool(
+        retriever,
+        "document_retriever",
+        description="Search for relevant documents to answer user questions",
+    )
 
-retriever_tool = create_retriever_tool(
-    retriever,
-    "document_retriever",
-    description="Search for relevant documents to answer user questions",
-)
-
-agent = create_agent(
-    model=model,
-    tools=[retriever_tool],
-    system_prompt=SYSTEM_PROMPT,
-    checkpointer=checkpointer
-)
-
+    agent = create_agent(
+        model=model,
+        tools=[retriever_tool],
+        system_prompt=SYSTEM_PROMPT,
+        checkpointer=checkpointer
+    )
+    return agent
 
 st.title("PDF Chat")
 uploaded_file = st.file_uploader("Choose a PDF", type=["pdf"])
@@ -79,22 +71,35 @@ if uploaded_file is not None:
     # ------------------------------------------------------------
     with st.spinner("Indexing PDF…"):
         index_pdf_documents(
-            pdf_path=pdf_path,
-            vector_store=qdrant,
-            dense_embeddings=dense_embeddings
+            pdf_path=pdf_path
         )
+        print("PDF indexed successfully.")
+
+    if "chat_history" not in st.session_state:
+        st.session_state.chat_history = []
+
+    for message in st.session_state.chat_history:
+        if isinstance(message, HumanMessage):
+            with st.chat_message("user"):
+                st.markdown(message.content)
+        elif isinstance(message, AIMessage):
+            with st.chat_message("assistant"):
+                st.markdown(message.content)
 
     user_query = st.chat_input("Ask a question about the uploaded PDF")
     if user_query:
         st.chat_message("user").write(user_query)
+        st.session_state.chat_history.append(HumanMessage(content=user_query))
+
         with st.chat_message("assistant"):
             placeholder = st.empty()
             full_response = ""
 
-            for token in stream(user_query, agent, config):
+            for token in stream(user_query, agent_init()):
                 full_response += token
                 placeholder.markdown(full_response + "▌")
 
             placeholder.markdown(full_response)
-        # st.chat_message("assistant").write("I will answer this after connecting your retriever.")
+            st.session_state.chat_history.append(AIMessage(content=full_response))
+
 
