@@ -5,6 +5,11 @@ their contents. The project uses semantic chunking, hybrid dense and sparse
 retrieval, Cohere reranking, and a DeepSeek-powered LangChain agent to produce
 answers grounded in the indexed documents.
 
+## Live Demo
+
+Try the deployed application at
+[agentpractice.streamlit.app](https://agentpractice.streamlit.app/).
+
 ## Features
 
 - Upload and index multiple PDF files from a browser
