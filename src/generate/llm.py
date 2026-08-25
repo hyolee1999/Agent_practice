@@ -13,72 +13,41 @@ from qdrant_client import QdrantClient, models
 from fastembed.sparse.sparse_text_embedding import SparseTextEmbedding
 from ingestion.ingestion_manager import raw_to_documents
 from langchain_core.documents import Document
-from .prompt import SYSTEM_PROMPT, ResponseFormat
+
+
 
 # import streamlit as st
 # import tempfile
 # from pathlib import Path
 
 
-model = init_chat_model(model_name="gpt-4o", temperature=0.1)
+# model = init_chat_model(model_name="gpt-4o", temperature=0.1)
 
-embeddings = OpenAIEmbeddings(model_name="text-embedding-3-small")
+# embeddings = OpenAIEmbeddings(model_name="text-embedding-3-small")
 
-sparse_embeddings = SparseTextEmbedding(model_name="Qdrant/bm25")
+# sparse_embeddings = SparseTextEmbedding(model_name="Qdrant/bm25")
 
-checkpointer = InMemorySaver()
+# checkpointer = InMemorySaver()
 
-retriever = retriever_init(
-    client=QdrantClient(url="http://localhost:6333"),
-    collection_name="document_collection",
-    sparse_embeddings=sparse_embeddings,
-    dense_embeddings=embeddings
-)
+# retriever = retriever_init(
+#     client=QdrantClient(url="http://localhost:6333"),
+#     collection_name="document_collection",
+#     sparse_embeddings=sparse_embeddings,
+#     dense_embeddings=embeddings
+# )
 
-agent = create_agent(
-    model=model,
-    tools= [retriever],
-    system_prompt=SYSTEM_PROMPT,
-    checkpointer=checkpointer,
-    response_format=ResponseFormat
-)
+# agent = create_agent(
+#     model=model,
+#     tools= [retriever],
+#     system_prompt=SYSTEM_PROMPT,
+#     checkpointer=checkpointer,
+#     response_format=ResponseFormat
+# )
 
-config = {'configurable':{'thread_id':1}}
-
-
-# def qdrant_init(client,collection_name, dense_embeddings, sparse_embeddings):
-#     # client = QdrantClient(url="http://localhost:6333")
-    
-
-#     if client.collection_exists(collection_name=collection_name):
-#         return QdrantVectorStore.from_existing_collection(
-#             client=client,
-#             collection_name=collection_name,
-#             embedding=dense_embeddings,
-#             sparse_embedding=sparse_embeddings,
-#             retriever_mode="hybrid"
-#         )
-#     else:
-#         client.create_collection(
-#             collection_name = collection_name,
-#             vectors_config = {
-#                 "dense": models.VectorParams(size=dense_embeddings.dim, distance=models.Distance.COSINE)
-#             },
-#             sparse_vectors_config = {
-#                 "sparse": models.SparseVectorParams()
-#             }
-#         )
-
-#         return QdrantVectorStore.from_existing_collection(
-#             client=client,
-#             collection_name=collection_name,
-#             embedding=dense_embeddings,
-#             sparse_embedding=sparse_embeddings,
-#             retriever_mode="hybrid"
-#         )
+# config = {'configurable':{'thread_id':1}}
 
 
-def generate(query: str) -> str:
+def generate(query: str, agent, config) -> str:
     """Generate an answer to the query using the agent."""  
     result = agent.invoke(
         {
@@ -88,11 +57,12 @@ def generate(query: str) -> str:
                     'content': query
                 }
             ]
-        }
+        },
+        config = config
     )
     return result
 
-def stream(query: str ) -> Generator[str, None, None]:
+def stream(query: str, agent, config ) -> Generator[str, None, None]:
     """Stream the answer to the query using the agent."""
 
     for chunk in agent.stream(
@@ -104,9 +74,11 @@ def stream(query: str ) -> Generator[str, None, None]:
                 }
             ]
         },
+        config = config,
         stream_mode = "messages",
         version = "v2"
     ):
+        print("Chunk: ", chunk)
         if chunk["type"] == "message":
             token, metatda = chunk["data"]
             if token.content_blocks:
