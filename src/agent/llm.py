@@ -7,7 +7,7 @@ from langchain_core.tools import create_retriever_tool
 from dataclasses import dataclass
 from langgraph.checkpoint.memory import InMemorySaver
 from dotenv import load_dotenv
-from retrieval.retriever import retriever_init
+from src.rag.vector_store import retriever_init
 from langchain_openai import OpenAIEmbeddings
 from qdrant_client import QdrantClient, models
 from fastembed.sparse.sparse_text_embedding import SparseTextEmbedding
@@ -45,10 +45,10 @@ from langchain_core.messages import AIMessageChunk
 #     response_format=ResponseFormat
 # )
 
-# config = {'configurable':{'thread_id':1}}
+config = {'configurable':{'thread_id':1}}
 
 
-def generate(query: str, agent, config) -> str:
+def generate(query: str, agent) -> str:
     """Generate an answer to the query using the agent."""  
     result = agent.invoke(
         {
@@ -63,7 +63,7 @@ def generate(query: str, agent, config) -> str:
     )
     return result
 
-def stream(query: str, agent, config ) -> Generator[str, None, None]:
+def stream(query: str, agent ) -> Generator[str, None, None]:
     """Stream the answer to the query using the agent."""
 
     for chunk in agent.stream(

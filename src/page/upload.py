@@ -1,12 +1,11 @@
 import streamlit as st
 import tempfile
-from src.retrieval.retriever import retriever_init, index_pdf_documents
-from langchain_openai import OpenAIEmbeddings
+from src.rag.vector_store import index_pdf_documents
 
-dense_embeddings = OpenAIEmbeddings(model="text-embedding-3-large")
 
 st.title("Upload PDF to Qdrant")
 file = st.file_uploader("Choose a PDF file", type="pdf")
+
 
 
 if file is not None:
@@ -17,11 +16,10 @@ if file is not None:
             tmp.write(file.read())
             pdf_path = tmp.name
 
-        # Index the PDF document
-        index_pdf_documents(
-            pdf_path=pdf_path,
-            _vector_store=qdrant,
-            dense_embeddings=dense_embeddings
-        )
+        # qdrant = retriever_init(
+        #     collection_name="document_collection"
+        # )
 
-    st.success("PDF uploaded aÍnd indexed successfully!")
+        index_pdf_documents(pdf_path)
+
+    st.success("PDF uploaded and indexed successfully!")
