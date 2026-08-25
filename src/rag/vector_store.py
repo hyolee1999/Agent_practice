@@ -15,7 +15,8 @@ import streamlit as st
 client = QdrantClient(url="http://localhost:6333")
 
 
-@st.cache_data(show_spinner=False, persist=True)
+
+@st.cache_resource()
 def retriever_init(collection_name) -> QdrantVectorStore:
     """Initialize a QdrantVectorStore backed by the provided client.
 
@@ -81,7 +82,6 @@ def retriever_init(collection_name) -> QdrantVectorStore:
 # ---------------------------------------------------------------------------
 # Helper: load a PDF, split it into semantic chunks, and index those chunks.
 # ---------------------------------------------------------------------------
-@st.cache_data(show_spinner=False, persist=True)
 def index_pdf_documents(
     pdf_path: str
 ) -> None:

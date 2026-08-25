@@ -14,7 +14,7 @@ from fastembed.sparse.sparse_text_embedding import SparseTextEmbedding
 from ingestion.ingestion_manager import raw_to_documents
 from langchain_core.documents import Document
 from dotenv import load_dotenv
-from src.rag.vector_store import retriever_init, client
+from rag.vector_store import retriever_init, client
 from agent.prompt import SYSTEM_PROMPT, ResponseFormat
 from agent.llm import generate, stream
 from uuid import uuid4
@@ -26,6 +26,10 @@ from main import agent_init
 @st.fragment
 def load_chat_page(agent):
     """Load the chat page with the agent and configurations."""
+
+
+    if "chat_history" not in st.session_state:
+        st.session_state.chat_history = []
 
     for message in st.session_state.chat_history:
         if isinstance(message, HumanMessage):

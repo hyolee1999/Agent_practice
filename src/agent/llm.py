@@ -7,7 +7,7 @@ from langchain_core.tools import create_retriever_tool
 from dataclasses import dataclass
 from langgraph.checkpoint.memory import InMemorySaver
 from dotenv import load_dotenv
-from src.rag.vector_store import retriever_init
+from rag.vector_store import retriever_init
 from langchain_openai import OpenAIEmbeddings
 from qdrant_client import QdrantClient, models
 from fastembed.sparse.sparse_text_embedding import SparseTextEmbedding
