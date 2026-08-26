@@ -18,3 +18,4 @@ langchain-qdrant
 langchain-deepseek
 langchain-ollama
 langchain_cohere
+langfuse

@@ -215,12 +215,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
       for (const line of lines) {
         if (line.startsWith('data:')) {
-          // let content = line.startsWith('data: ') ? line.slice(6) : line.slice(5);
-          let content = line.slice(5);
+          let content = line.startsWith('data: ') ? line.slice(6) : line.slice(5);
+          // let content = line.slice(5);
           if (content.trim() === '[DONE]') continue;
           try {
             const parsed = JSON.parse(content);
-            const text = parsed.text ?? parsed.content;
+            const text = parsed.token ?? parsed.text ?? parsed.content;
             if (typeof text === 'string') {
               accumulatedText += text;
               continue;
@@ -235,11 +235,14 @@ document.addEventListener('DOMContentLoaded', () => {
         isFirstChunk = false;
       }
 
-      textContainer.textContent = accumulatedText;
+      textContainer.innerHTML = renderMarkdown(accumulatedText);
       messagesContainer.scrollTop = messagesContainer.scrollHeight;
     }
 
-    if (!accumulatedText) {
+    // Final render pass to catch any remaining buffered text
+    if (accumulatedText) {
+      textContainer.innerHTML = renderMarkdown(accumulatedText);
+    } else {
       textContainer.textContent = 'No response generated from the model.';
     }
   }
@@ -261,7 +264,8 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     const data = await response.json();
-    textContainer.textContent = data.response || 'No response returned.';
+    const rawText = data.response || 'No response returned.';
+    textContainer.innerHTML = renderMarkdown(rawText);
     messagesContainer.scrollTop = messagesContainer.scrollHeight;
   }
 
@@ -336,5 +340,17 @@ document.addEventListener('DOMContentLoaded', () => {
       .replace(/>/g, '&gt;')
       .replace(/"/g, '&quot;')
       .replace(/'/g, '&#039;');
+  }
+
+  /**
+   * Convert markdown text to sanitized HTML.
+   * Falls back to escaped plain text if libraries aren't loaded.
+   */
+  function renderMarkdown(text) {
+    if (typeof marked !== 'undefined' && typeof DOMPurify !== 'undefined') {
+      return DOMPurify.sanitize(marked.parse(text));
+    }
+    // Fallback: plain escaped text
+    return escapeHtml(text);
   }
 });

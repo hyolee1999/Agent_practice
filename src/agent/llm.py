@@ -14,7 +14,8 @@ from fastembed.sparse.sparse_text_embedding import SparseTextEmbedding
 from ingestion.ingestion_manager import raw_to_documents
 from langchain_core.documents import Document
 from langchain_core.messages import AIMessageChunk
-
+from langfuse import get_client
+from langfuse.langchain import CallbackHandler
 
 
 # import streamlit as st
@@ -45,7 +46,12 @@ from langchain_core.messages import AIMessageChunk
 #     response_format=ResponseFormat
 # )
 
-config = {'configurable':{'thread_id':'1'}}
+
+# Initialize Langfuse client for logging
+langfuse_client = get_client()
+langfuse_callback = CallbackHandler()
+
+config = {'configurable':{'thread_id':'1'}, "callbacks": [langfuse_callback]}
 
 
 def generate(query: str, agent) -> str:

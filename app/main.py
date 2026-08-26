@@ -1,9 +1,12 @@
+from uuid import uuid4
 import os
 import sys
+import json
 import tempfile
 import asyncio
 from pathlib import Path
 from typing import AsyncGenerator
+
 
 # Ensure 'src' is available in Python path
 ROOT_DIR = Path(__file__).resolve().parent.parent
@@ -18,6 +21,7 @@ from fastapi.responses import FileResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 from main import agent_init
+
 
 load_dotenv()
 
@@ -56,7 +60,9 @@ class ChatResponse(BaseModel):
 
 
 # Optional: Lazy load or initialize RAG components from src/
-agent_instance = None
+agent_instance = agent_init()
+
+
 
 def get_or_create_agent():
     """Initializes LangChain/LangGraph agent from existing project modules."""
@@ -182,8 +188,8 @@ async def chat_stream_endpoint(request: ChatRequest):
                 from agent.llm import stream
                 for token in stream(query, agent):
                     if token:
-                        print("token from FastAPI:", token)
-                        yield f"data: {token}\n\n"
+                        # print("token from FastAPI:", token)
+                        yield f"data: {json.dumps({'token': token})}\n\n"
                         await asyncio.sleep(0.01)
                 yield "data: [DONE]\n\n"
                 return
