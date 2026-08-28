@@ -16,45 +16,12 @@ from langchain_core.documents import Document
 from langchain_core.messages import AIMessageChunk
 from langfuse import get_client
 from langfuse.langchain import CallbackHandler
+from langchain.agents.middleware import wrap_tool_call
+from langchain.tools.tool_node import ToolCallRequest
 
 
-# import streamlit as st
-# import tempfile
-# from pathlib import Path
 
-
-# model = init_chat_model(model_name="gpt-4o", temperature=0.1)
-
-# embeddings = OpenAIEmbeddings(model_name="text-embedding-3-small")
-
-# sparse_embeddings = SparseTextEmbedding(model_name="Qdrant/bm25")
-
-# checkpointer = InMemorySaver()
-
-# retriever = retriever_init(
-#     client=QdrantClient(url="http://localhost:6333"),
-#     collection_name="document_collection",
-#     sparse_embeddings=sparse_embeddings,
-#     dense_embeddings=embeddings
-# )
-
-# agent = create_agent(
-#     model=model,
-#     tools= [retriever],
-#     system_prompt=SYSTEM_PROMPT,
-#     checkpointer=checkpointer,
-#     response_format=ResponseFormat
-# )
-
-
-# Initialize Langfuse client for logging
-langfuse_client = get_client()
-langfuse_callback = CallbackHandler()
-
-config = {'configurable':{'thread_id':'1'}, "callbacks": [langfuse_callback]}
-
-
-def generate(query: str, agent) -> str:
+def generate(query: str, agent, config) -> str:
     """Generate an answer to the query using the agent."""  
     result = agent.invoke(
         {
@@ -68,9 +35,11 @@ def generate(query: str, agent) -> str:
         config = config
     )
 
+    # print(result)
+
     return result["messages"][-1].content
 
-def stream(query: str, agent ) -> Generator[str, None, None]:
+def stream(query: str, agent, config ) -> Generator[str, None, None]:
     """Stream the answer to the query using the agent."""
 
     for chunk in agent.stream(
@@ -86,7 +55,7 @@ def stream(query: str, agent ) -> Generator[str, None, None]:
         stream_mode = "messages",
         version = "v2"
     ):
-
+        # print(chunk)
         if chunk["type"] == "messages":
             token, metadata = chunk["data"]
             if token.content_blocks and isinstance(token, AIMessageChunk):
