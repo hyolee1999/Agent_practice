@@ -72,7 +72,6 @@ Agent_practice_clean/
 │           └── pages/
 │               ├── upload.py
 │               └── chat.py
-├── app/main.py                            # FastAPI delegation shim
 ├── pyproject.toml                         # Packaging metadata & console scripts
 └── uv.lock                                # Reproducible dependency lockfile
 ```

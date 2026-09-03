@@ -5,6 +5,9 @@ from langchain_community.embeddings import FastEmbedEmbeddings
 from langchain_qdrant import FastEmbedSparse
 
 from docuagent.config.settings import settings
+from dotenv import load_dotenv
+
+load_dotenv()
 
 
 @lru_cache(maxsize=1)

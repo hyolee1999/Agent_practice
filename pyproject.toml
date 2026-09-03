@@ -33,7 +33,7 @@ dependencies = [
 
 [project.scripts]
 docuagent-api = "docuagent.api.app:run_server"
-docuagent-ui = "docuagent.ui.app:run_ui"
+docuagent-ui = "docuagent.ui.cli:run_ui"
 
 [build-system]
 requires = ["uv_build>=0.12.0,<0.13.0"]

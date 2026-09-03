@@ -1,8 +1,6 @@
 """Main Streamlit Navigation Entry Point."""
 
 from pathlib import Path
-import os
-import sys
 import streamlit as st
 
 CURRENT_DIR = Path(__file__).resolve().parent
@@ -28,14 +26,3 @@ chat_page = st.Page(
 
 nav = st.navigation([chat_page, upload_page])
 nav.run()
-
-
-def run_ui():
-    """CLI launcher for Streamlit."""
-    import subprocess
-    app_path = str(Path(__file__).resolve())
-    subprocess.run(["streamlit", "run", app_path])
-
-
-if __name__ == "__main__":
-    pass

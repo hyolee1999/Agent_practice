@@ -8,6 +8,9 @@ from langchain.agents.middleware import wrap_tool_call
 from langchain.tools.tool_node import ToolCallRequest
 
 from docuagent.config.settings import settings
+from dotenv import load_dotenv
+
+load_dotenv()
 
 
 class ContextManager:

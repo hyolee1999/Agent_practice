@@ -12,6 +12,7 @@ from ragas.dataset_schema import SingleTurnSample
 
 from docuagent.observability.langfuse import get_langfuse_client, context_manager
 
+
 # Default evaluation metrics
 default_metrics = [
     Faithfulness(),

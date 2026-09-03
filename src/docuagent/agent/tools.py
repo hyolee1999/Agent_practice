@@ -7,6 +7,9 @@ from langchain_classic.retrievers.contextual_compression import ContextualCompre
 
 from docuagent.config.settings import settings
 from docuagent.rag.vector_store import get_retriever
+import os
+from dotenv import load_dotenv
+load_dotenv()
 
 
 def create_document_retriever_tool(
@@ -17,11 +20,10 @@ def create_document_retriever_tool(
     """Create a contextual compression retriever tool backed by Qdrant and Cohere reranking."""
     base_retriever = get_retriever(collection_name=collection_name, k=settings.top_k)
 
-    if settings.cohere_api_key:
+    if os.getenv("COHERE_API_KEY"):
         compressor = CohereRerank(
             model=settings.rerank_model,
-            top_n=settings.rerank_top_n,
-            cohere_api_key=settings.cohere_api_key,
+            top_n=settings.rerank_top_n
         )
         retriever = ContextualCompressionRetriever(
             base_compressor=compressor,

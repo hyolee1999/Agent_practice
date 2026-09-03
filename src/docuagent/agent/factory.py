@@ -12,6 +12,10 @@ from docuagent.agent.tools import create_document_retriever_tool
 from docuagent.observability.langfuse import intercept_retriever
 from docuagent.observability.metrics import init_ragas_metrics, default_metrics
 
+from dotenv import load_dotenv
+
+load_dotenv()
+
 
 def create_rag_agent(
     model_name: Optional[str] = None,
