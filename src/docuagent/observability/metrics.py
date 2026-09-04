@@ -1,6 +1,29 @@
 """Ragas metrics evaluation and Langfuse score tracking."""
 
+import sys
 from typing import List, Dict, Any, Optional, Union
+
+# ---------------------------------------------------------------------------
+# Compatibility Shim for Ragas Issue #2745 (Broken ChatVertexAI / VertexAI imports)
+# In langchain-community >= 0.4, VertexAI classes moved to langchain-google-vertexai.
+# Unpatched Ragas on PyPI (e.g. Streamlit Cloud) imports from the old paths.
+# We map the old paths in sys.modules to langchain_google_vertexai at runtime.
+# ---------------------------------------------------------------------------
+if "langchain_community.chat_models.vertexai" not in sys.modules:
+    try:
+        import langchain_google_vertexai
+
+        sys.modules["langchain_community.chat_models.vertexai"] = langchain_google_vertexai
+        sys.modules["langchain_community.llms.vertexai"] = langchain_google_vertexai
+        try:
+            import langchain_community.llms
+
+            langchain_community.llms.VertexAI = langchain_google_vertexai.VertexAI
+        except (ImportError, AttributeError):
+            pass
+    except ImportError:
+        pass
+
 from ragas.metrics import (
     Faithfulness,
     ResponseRelevancy,
@@ -9,6 +32,36 @@ from ragas.metrics import (
 from ragas.run_config import RunConfig
 from ragas.metrics.base import MetricWithLLM, MetricWithEmbeddings
 from ragas.dataset_schema import SingleTurnSample
+
+# ---------------------------------------------------------------------------
+# Compatibility Patch for Ragas LLM JSON Parsing with Markdown Code Fences
+# Raw PyPI Ragas crashes when LLMs return ```json ... ``` inside PydanticPrompt.
+# We monkeypatch PydanticPrompt.generate_multiple to wrap output_model validation.
+# ---------------------------------------------------------------------------
+try:
+    import ragas.prompt.pydantic_prompt as pp
+    from ragas.prompt.utils import extract_json
+
+    _orig_generate_multiple = pp.PydanticPrompt.generate_multiple
+
+    async def _patched_generate_multiple(self, *args, **kwargs):
+        if hasattr(self, "output_model") and hasattr(self.output_model, "model_validate_json"):
+            model_cls = self.output_model
+            if not getattr(model_cls, "_ragas_extract_json_patched", False):
+                _orig_validate = model_cls.model_validate_json
+
+                def _clean_validate(json_data, *a, **k):
+                    if isinstance(json_data, str):
+                        json_data = extract_json(json_data)
+                    return _orig_validate(json_data, *a, **k)
+
+                model_cls.model_validate_json = _clean_validate
+                model_cls._ragas_extract_json_patched = True
+        return await _orig_generate_multiple(self, *args, **kwargs)
+
+    pp.PydanticPrompt.generate_multiple = _patched_generate_multiple
+except (ImportError, AttributeError):
+    pass
 
 from docuagent.observability.langfuse import get_langfuse_client, context_manager
 
