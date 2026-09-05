@@ -40,4 +40,4 @@ requires = ["uv_build>=0.12.0,<0.13.0"]
 build-backend = "uv_build"
 
 [tool.vercel]
-entrypoint = "docuagent.api.app:app"
+entrypoint = "docuagent.api.app:run_server"
