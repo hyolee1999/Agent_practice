@@ -11,6 +11,7 @@ from fastapi.staticfiles import StaticFiles
 from docuagent.config.settings import settings
 from docuagent.api.routes import chat_router, documents_router
 
+
 app = FastAPI(
     title=settings.app_name,
     description="Production-ready FastAPI backend for DocuAgent RAG with Streaming and Observability",
@@ -64,6 +65,10 @@ async def serve_index():
         "docs": "/docs",
     }
 
+@app.get("/api/health")
+async def health_check():
+    """Health check endpoint for frontend status badge and uptime monitoring."""
+    return {"status": "ok", "app": settings.app_name}
 
 def run_server():
     """Entry point to run FastAPI uvicorn server."""

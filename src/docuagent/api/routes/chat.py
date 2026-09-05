@@ -1,5 +1,6 @@
 """Chat endpoints supporting JSON and Server-Sent Events (SSE) streaming."""
 
+from docuagent.observability.metrics import eval_trace
 import json
 import asyncio
 from typing import AsyncGenerator, Optional
@@ -9,19 +10,20 @@ from fastapi.responses import StreamingResponse
 
 from docuagent.agent.factory import create_rag_agent
 from docuagent.agent.execution import generate, stream
-from docuagent.observability.langfuse import get_agent_config
+from docuagent.observability.langfuse import get_agent_config, context_manager
+
 
 router = APIRouter(prefix="/api", tags=["chat"])
 
 # Module-level cached agent for API worker process
 _api_agent = None
 
-
 def get_or_create_agent():
     """Lazily instantiate the RAG agent for the API server."""
     global _api_agent
     if _api_agent is None:
-        _api_agent = create_rag_agent(init_eval_metrics=False)
+        _api_agent = create_rag_agent(init_eval_metrics=True)
+        _context_manager = context_manager
     return _api_agent
 
 
@@ -45,6 +47,7 @@ async def chat_endpoint(request: ChatRequest):
     try:
         agent = get_or_create_agent()
         answer = generate(query, agent, config=get_agent_config())
+        await eval_trace(question=query, answer=answer)
         return ChatResponse(query=query, response=answer)
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Agent error: {str(e)}")
@@ -71,11 +74,14 @@ async def chat_stream_endpoint(
             agent = get_or_create_agent()
             config = get_agent_config()
 
+            full_answer = []
             for token in stream(user_query, agent, config=config):
                 if token:
+                    full_answer.append(token)
                     yield f"data: {json.dumps({'token': token})}\n\n"
                     await asyncio.sleep(0.01)
-
+            complete_text = "".join(full_answer)
+            await eval_trace(question=user_query, answer=complete_text)
             yield "data: [DONE]\n\n"
         except Exception as e:
             err_json = json.dumps({"error": str(e)})
