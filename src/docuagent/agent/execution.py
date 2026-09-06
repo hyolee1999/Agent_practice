@@ -24,7 +24,7 @@ def stream(query: str, agent: Any, config: Optional[Dict[str, Any]] = None) -> G
         {"messages": [{"role": "user", "content": query}]},
         config=cfg,
         stream_mode="messages",
-        version="v2",
+        version="v2"
     ):
         if chunk.get("type") == "messages":
             token, _ = chunk["data"]
@@ -32,8 +32,6 @@ def stream(query: str, agent: Any, config: Optional[Dict[str, Any]] = None) -> G
                 block = token.content_blocks[0]
                 if isinstance(block, dict) and "text" in block:
                     yield block["text"]
-            elif getattr(token, "content", None):
-                yield token.content
 
 
 async def astream(query: str, agent: Any, config: Optional[Dict[str, Any]] = None) -> AsyncGenerator[str, None]:
@@ -44,14 +42,23 @@ async def astream(query: str, agent: Any, config: Optional[Dict[str, Any]] = Non
         {"messages": [{"role": "user", "content": query}]},
         config=cfg,
         stream_mode="messages",
+        version="v2"
     ):
-        if isinstance(chunk, tuple):
-            message, _ = chunk
-            content = getattr(message, "content", "")
-            if content:
-                yield content
-        elif isinstance(chunk, dict) and "messages" in chunk:
-            msg = chunk["messages"][-1]
-            content = getattr(msg, "content", "")
-            if content:
-                yield content
+        if chunk.get("type") == "messages":
+            token, _ = chunk["data"]
+            if getattr(token, "content_blocks", None) and isinstance(token, AIMessageChunk):
+                block = token.content_blocks[0]
+                if isinstance(block, dict) and "text" in block:
+                    yield block["text"]
+            elif getattr(token, "content", None):
+                yield token.content
+        # if isinstance(chunk, tuple):
+        #     message, _ = chunk
+        #     content = getattr(message, "content", "")
+        #     if content:
+        #         yield content
+        # elif isinstance(chunk, dict) and "messages" in chunk:
+        #     msg = chunk["messages"][-1]
+        #     content = getattr(msg, "content", "")
+        #     if content:
+        #         yield content
