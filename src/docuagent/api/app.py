@@ -9,7 +9,7 @@ from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
 from docuagent.config.settings import settings
-from docuagent.api.routes import chat_router, documents_router
+from docuagent.api.routes import chat_router, documents_router, auth_router
 
 
 app = FastAPI(
@@ -39,6 +39,7 @@ async def add_no_cache_headers(request, call_next):
 
 
 # Include API routers
+app.include_router(auth_router)
 app.include_router(chat_router)
 app.include_router(documents_router)
 

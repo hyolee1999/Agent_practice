@@ -5,6 +5,7 @@ description = "Production-grade Document RAG Agent with Hybrid Search, Observabi
 readme = "README.md"
 requires-python = ">=3.13"
 dependencies = [
+    "bcrypt>=5.0.0",
     "bm25s>=0.3.10",
     "datasets>=5.0.1",
     "fastapi>=0.141.1",
@@ -22,11 +23,14 @@ dependencies = [
     "langchain-qdrant>=1.1.0",
     "langchain-text-splitters>=1.1.2",
     "langfuse>=4.14.5",
+    "psycopg2-binary>=2.9.13",
     "pydantic-settings>=2.0.0",
+    "pyjwt>=2.14.0",
     "pymupdf>=1.28.2",
     "python-dotenv>=1.2.2",
     "qdrant-client>=1.19.0",
     "ragas>=0.4.3",
+    "sqlmodel>=0.0.42",
     "streamlit>=1.61.1",
     "uvicorn>=0.52.1",
 ]

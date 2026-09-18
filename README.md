@@ -22,6 +22,7 @@ This project provides **two distinct deployment versions** sharing the same unif
   - `faithfulness` (hallucination detection)
   - `answer_relevancy` (question alignment)
   - `llm_context_precision_without_reference` (retrieval precision)
+- **User Authentication & Session Security**: Full JWT bearer authentication with bcrypt password hashing, PostgreSQL/SQLite backing via SQLModel, and persistent client-side session management (`localStorage`).
 - **Clean Architecture**: Domain logic is 100% decoupled from presentation layers — neither Streamlit nor FastAPI leaks runtime dependencies into the core business logic.
 
 ---
@@ -34,18 +35,21 @@ Agent_practice_clean/
 │   ├── architecture.md
 │   └── llm_embedding_note.md
 ├── frontend/                              # Web application assets
-│   └── dist/                              # HTML/JS client served by FastAPI
+│   └── dist/                              # Modern glassmorphism HTML/JS client served by FastAPI
 ├── tests/                                 # Unit & integration test suite
 │   ├── test_config.py
 │   ├── test_embeddings.py
 │   ├── test_agent_factory.py
 │   └── test_ragas_parser.py
+├── main.py                                # Root entrypoint for Vercel & local Uvicorn serving
 ├── src/
 │   ├── main.py                            # Backward-compatibility import shim
 │   ├── main_page.py                       # Backward-compatibility Streamlit shim
 │   └── docuagent/                         # Core Python Package
 │       ├── config/                        # Pydantic BaseSettings (.env loading)
 │       │   └── settings.py
+│       ├── db/                            # SQLModel database engine & User models
+│       │   └── database.py
 │       ├── ingestion/                     # PDF loading & semantic/fixed chunking
 │       │   ├── loader.py
 │       │   ├── chunker.py
@@ -64,6 +68,7 @@ Agent_practice_clean/
 │       ├── api/                           # FastAPI web service & SSE routes
 │       │   ├── app.py
 │       │   └── routes/
+│       │       ├── auth.py
 │       │       ├── chat.py
 │       │       └── documents.py
 │       └── ui/                            # Streamlit application & cached loaders
@@ -72,7 +77,7 @@ Agent_practice_clean/
 │           └── pages/
 │               ├── upload.py
 │               └── chat.py
-├── pyproject.toml                         # Packaging metadata & console scripts
+├── pyproject.toml                         # Packaging metadata, scripts & Vercel config
 └── uv.lock                                # Reproducible dependency lockfile
 ```
 
@@ -83,6 +88,7 @@ Agent_practice_clean/
 - [Python 3.13+](https://www.python.org/downloads/)
 - [`uv`](https://docs.astral.sh/uv/) (recommended for dependency management)
 - Running [Qdrant](https://qdrant.tech/) instance
+- Running [PostgreSQL](https://www.postgresql.org/) database (or fallback to local SQLite)
 - (Optional) Running [Langfuse](https://langfuse.com/) instance for telemetry
 
 ### Start Services with Docker:
@@ -91,7 +97,10 @@ Agent_practice_clean/
 # 1. Start Qdrant
 docker run -d --name qdrant -p 6333:6333 -p 6334:6334 qdrant/qdrant
 
-# 2. (Optional) Start Langfuse self-hosted
+# 2. Start PostgreSQL (Default auth database)
+docker run -d --name postgres -e POSTGRES_USER=khoa -e POSTGRES_PASSWORD=supersecret -e POSTGRES_DB=khoa_db -p 5433:5432 postgres:16-alpine
+
+# 3. (Optional) Start Langfuse self-hosted
 # See https://langfuse.com/docs/deployment/local
 ```
 
@@ -116,7 +125,7 @@ docker run -d --name qdrant -p 6333:6333 -p 6334:6334 qdrant/qdrant
    ```bash
    cp .env.example .env
    ```
-   Fill in your API keys:
+   Fill in your configuration:
    ```dotenv
    # LLM Providers (Configure at least one)
    ANTHROPIC_API_KEY=your_anthropic_api_key
@@ -126,6 +135,14 @@ docker run -d --name qdrant -p 6333:6333 -p 6334:6334 qdrant/qdrant
    # Vector Store
    QDRANT_URL=http://localhost:6333
    QDRANT_API_KEY=
+
+   # Database (PostgreSQL or SQLite fallback "sqlite:///./docuagent.db")
+   DATABASE_URL=postgresql://khoa:supersecret@localhost:5433/khoa_db
+
+   # Security & JWT Tokens
+   SECRET_KEY=docuagent-dev-secret-change-in-production
+   ALGORITHM=HS256
+   ACCESS_TOKEN_EXPIRE_MINUTES=1440
 
    # Observability (Langfuse)
    LANGFUSE_PUBLIC_KEY=pk-lf-...
@@ -156,10 +173,10 @@ uv run streamlit run src/docuagent/ui/app.py
 ---
 
 ### Version 2: FastAPI Backend (Actual Implementation & API Serving)
-> **Use Case**: Production implementation providing asynchronous REST APIs, Server-Sent Events (SSE) streaming token output, and serving standalone web applications.
+> **Use Case**: Production implementation providing asynchronous REST APIs, Server-Sent Events (SSE) streaming token output, user authentication, and serving the interactive web frontend.
 
 ```bash
-uv run uvicorn docuagent.api.app:app --reload --port 8000
+uv run uvicorn main:app --reload --port 8000
 ```
 *(or via console script: `uv run docuagent-api`)*
 
@@ -173,10 +190,13 @@ uv run uvicorn docuagent.api.app:app --reload --port 8000
 
 | Method | Endpoint | Description |
 |---|---|---|
+| `POST` | `/api/auth/register` | Register new account and receive JWT access token |
+| `POST` | `/api/auth/login` | Authenticate credentials and return JWT bearer token |
 | `POST` | `/api/chat` | Synchronous JSON chat (`{"query": "..."}`) |
 | `POST` / `GET` | `/api/chat/stream` | Server-Sent Events (SSE) streaming token output |
 | `POST` | `/api/upload` | Upload PDF file and index into Qdrant |
 | `POST` | `/api/clear` | Reset active conversation session |
+| `GET` | `/api/health` | Service health status |
 | `GET` | `/docs` | OpenAPI / Swagger interactive documentation |
 
 ---
@@ -209,6 +229,10 @@ Settings are managed via `pydantic-settings` in [src/docuagent/config/settings.p
 | `default_model` | — | `anthropic:claude-sonnet-4-6` | LLM for agent and evaluation |
 | `rerank_model` | — | `rerank-english-v3.0` | Cohere reranker |
 | `top_k` | `TOP_K` | `4` | Retrieval candidate count |
+| `database_url` | `DATABASE_URL` | `postgresql://...` | PostgreSQL or SQLite database URI |
+| `secret_key` | `SECRET_KEY` | `docuagent-dev-secret...` | JWT signature encryption secret |
+| `algorithm` | `ALGORITHM` | `HS256` | JWT signing algorithm |
+| `access_token_expire_minutes` | `ACCESS_TOKEN_EXPIRE_MINUTES` | `1440` | JWT token validity lifespan (minutes) |
 
 ---
 

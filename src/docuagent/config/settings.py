@@ -8,11 +8,11 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 class Settings(BaseSettings):
     """Centralized configuration loaded from environment variables and .env file."""
 
-    model_config = SettingsConfigDict(
-        env_file=".env",
-        env_file_encoding="utf-8",
-        extra="ignore",
-    )
+    # model_config = SettingsConfigDict(
+    #     env_file=".env",
+    #     env_file_encoding="utf-8",
+    #     extra="ignore",
+    # )
 
     # General App Config
     app_name: str = "DocuAgent AI"
@@ -42,6 +42,14 @@ class Settings(BaseSettings):
     top_k: int = Field(default=4, alias="TOP_K")
     rerank_top_n: int = 1
     rerank_model: str = "rerank-english-v3.0"
+
+    # Database URL
+    database_url: str = Field(default="postgresql://khoa:supersecret@localhost:5433/khoa_db", alias="DATABASE_URL")
+
+    # Security
+    secret_key: str = Field(default="docuagent-dev-secret-change-in-production", alias="SECRET_KEY")
+    algorithm: str = Field(default="HS256", alias="ALGORITHM")
+    access_token_expire_minutes: int = Field(default=60 * 24, alias="ACCESS_TOKEN_EXPIRE_MINUTES")
 
     # # Observability (Langfuse)
     # langfuse_public_key: Optional[str] = Field(default=None, alias="LANGFUSE_PUBLIC_KEY")

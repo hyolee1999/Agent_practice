@@ -1,15 +1,7 @@
 /**
  * DocuAgent AI Frontend Application Logic
- * Interacts with FastAPI backend endpoints:
- *  - POST /api/upload (PDF file upload and ingestion)
- *  - POST /api/chat (Standard JSON Q&A)
- *  - POST /api/chat/stream (SSE streaming Q&A)
- *  - POST /api/clear (Reset chat memory)
- *  - GET  /api/health (Server health check)
  */
-
 document.addEventListener('DOMContentLoaded', () => {
-  // DOM Elements
   const dropZone = document.getElementById('dropZone');
   const fileInput = document.getElementById('fileInput');
   const activeDocName = document.getElementById('activeDocName');
@@ -29,14 +21,172 @@ document.addEventListener('DOMContentLoaded', () => {
   let isGenerating = false;
   let hasUploadedDoc = false;
 
-  // Auto-resize textarea
+  // ==========================================================================
+  // Authentication State & DOM Handlers
+  // ==========================================================================
+  const authOverlay = document.getElementById('authOverlay');
+  const authForm = document.getElementById('authForm');
+  const authTitle = document.getElementById('authTitle');
+  const authSubtitle = document.getElementById('authSubtitle');
+  const tabLogin = document.getElementById('tabLogin');
+  const tabRegister = document.getElementById('tabRegister');
+  const authError = document.getElementById('authError');
+  const nameField = document.getElementById('nameField');
+  const authName = document.getElementById('authName');
+  const authEmail = document.getElementById('authEmail');
+  const authPassword = document.getElementById('authPassword');
+  const authSubmitBtn = document.getElementById('authSubmitBtn');
+  const userProfileBadge = document.getElementById('userProfileBadge');
+  const userAvatar = document.getElementById('userAvatar');
+  const userEmail = document.getElementById('userEmail');
+  const logoutBtn = document.getElementById('logoutBtn');
+
+  let authMode = 'login'; // 'login' | 'register'
+
+  function getAuthToken() {
+    return localStorage.getItem('access_token');
+  }
+
+  function getStoredUser() {
+    try {
+      return JSON.parse(localStorage.getItem('user_data') || 'null');
+    } catch {
+      return null;
+    }
+  }
+
+  function setAuthSession(token, user) {
+    localStorage.setItem('access_token', token);
+    localStorage.setItem('user_data', JSON.stringify(user));
+    updateAuthUI();
+  }
+
+  function clearAuthSession() {
+    localStorage.removeItem('access_token');
+    localStorage.removeItem('user_data');
+    updateAuthUI();
+  }
+
+  function getAuthHeaders(extraHeaders = {}) {
+    const token = getAuthToken();
+    const headers = { ...extraHeaders };
+    if (token) {
+      headers['Authorization'] = `Bearer ${token}`;
+    }
+    return headers;
+  }
+
+  function updateAuthUI() {
+    const token = getAuthToken();
+    const user = getStoredUser();
+
+    if (token && user) {
+      authOverlay.classList.add('hidden');
+      userProfileBadge.style.display = 'flex';
+      const initial = (user.name || user.email || 'U')[0].toUpperCase();
+      userAvatar.textContent = initial;
+      userEmail.textContent = user.name || user.email;
+      userEmail.title = user.email;
+    } else {
+      authOverlay.classList.remove('hidden');
+      userProfileBadge.style.display = 'none';
+      setTimeout(() => authEmail.focus(), 150);
+    }
+  }
+
+  function setAuthError(msg) {
+    if (msg) {
+      authError.textContent = msg;
+      authError.style.display = 'block';
+    } else {
+      authError.textContent = '';
+      authError.style.display = 'none';
+    }
+  }
+
+  tabLogin.addEventListener('click', () => {
+    if (authMode === 'login') return;
+    authMode = 'login';
+    tabLogin.classList.add('active');
+    tabRegister.classList.remove('active');
+    nameField.style.display = 'none';
+    authName.removeAttribute('required');
+    authTitle.textContent = 'Welcome to DocuAgent';
+    authSubtitle.textContent = 'Sign in to query your documents with AI';
+    authSubmitBtn.querySelector('span').textContent = 'Sign In';
+    setAuthError(null);
+  });
+
+  tabRegister.addEventListener('click', () => {
+    if (authMode === 'register') return;
+    authMode = 'register';
+    tabRegister.classList.add('active');
+    tabLogin.classList.remove('active');
+    nameField.style.display = 'flex';
+    authName.setAttribute('required', 'true');
+    authTitle.textContent = 'Create an Account';
+    authSubtitle.textContent = 'Sign up to upload and analyze PDFs';
+    authSubmitBtn.querySelector('span').textContent = 'Create Account';
+    setAuthError(null);
+  });
+
+  authForm.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    setAuthError(null);
+
+    const email = authEmail.value.trim();
+    const password = authPassword.value;
+    const name = authName.value.trim();
+
+    if (!email || !password) {
+      setAuthError('Please fill in all required fields.');
+      return;
+    }
+
+    authSubmitBtn.disabled = true;
+    authSubmitBtn.querySelector('span').textContent = authMode === 'login' ? 'Signing In...' : 'Creating...';
+
+    const endpoint = authMode === 'login' ? '/api/auth/login' : '/api/auth/register';
+    const payload = authMode === 'login' ? { email, password } : { email, password, name };
+
+    try {
+      const response = await fetch(endpoint, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+
+      const data = await response.json().catch(() => ({}));
+
+      if (!response.ok) {
+        throw new Error(data.detail || 'Authentication failed. Please check your details.');
+      }
+
+      setAuthSession(data.access_token, data.user);
+      authForm.reset();
+      showToast(authMode === 'login' ? 'Welcome back!' : 'Account created successfully!', 'success');
+    } catch (err) {
+      setAuthError(err.message);
+    } finally {
+      authSubmitBtn.disabled = false;
+      authSubmitBtn.querySelector('span').textContent = authMode === 'login' ? 'Sign In' : 'Create Account';
+    }
+  });
+
+  logoutBtn.addEventListener('click', () => {
+    clearAuthSession();
+    showToast('Signed out successfully.', 'info');
+  });
+
+  // Check initial authentication state
+  updateAuthUI();
+
   chatInput.addEventListener('input', () => {
     chatInput.style.height = 'auto';
     chatInput.style.height = Math.min(chatInput.scrollHeight, 160) + 'px';
     sendBtn.disabled = !chatInput.value.trim() || isGenerating;
   });
 
-  // Handle Enter vs Shift+Enter
   chatInput.addEventListener('keydown', (e) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
@@ -46,7 +196,6 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   });
 
-  // Quick suggestion click handler
   suggestionCards.forEach((card) => {
     card.addEventListener('click', () => {
       const prompt = card.getAttribute('data-prompt');
@@ -58,18 +207,14 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   });
 
-  // File Upload Handlers (Click & Drag-Drop)
   dropZone.addEventListener('click', () => fileInput.click());
-
   dropZone.addEventListener('dragover', (e) => {
     e.preventDefault();
     dropZone.classList.add('drag-over');
   });
-
   dropZone.addEventListener('dragleave', () => {
     dropZone.classList.remove('drag-over');
   });
-
   dropZone.addEventListener('drop', (e) => {
     e.preventDefault();
     dropZone.classList.remove('drag-over');
@@ -84,7 +229,6 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   });
 
-  // Upload PDF to FastAPI backend
   async function handleFileUpload(file) {
     if (!file.name.toLowerCase().endsWith('.pdf')) {
       showToast('Please select a valid PDF document.', 'error');
@@ -103,8 +247,14 @@ document.addEventListener('DOMContentLoaded', () => {
     try {
       const response = await fetch('/api/upload', {
         method: 'POST',
+        headers: getAuthHeaders(),
         body: formData,
       });
+
+      if (response.status === 401) {
+        clearAuthSession();
+        throw new Error('Session expired. Please sign in again.');
+      }
 
       if (!response.ok) {
         const errData = await response.json().catch(() => ({}));
@@ -127,7 +277,6 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }
 
-  // Clear Chat Conversation
   clearChatBtn.addEventListener('click', async () => {
     if (isGenerating) return;
     try {
@@ -141,29 +290,22 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   });
 
-  // Main Chat Submission Handler
   chatForm.addEventListener('submit', async (e) => {
     e.preventDefault();
     const query = chatInput.value.trim();
     if (!query || isGenerating) return;
 
-    // Hide welcome banner if visible
     if (welcomeContainer) {
       welcomeContainer.style.display = 'none';
     }
 
-    // Reset input
     chatInput.value = '';
     chatInput.style.height = 'auto';
     sendBtn.disabled = true;
     isGenerating = true;
 
-    // Append User Message
     appendMessage(query, 'user');
-
-    // Create AI Placeholder Bubble
     const aiBubble = appendMessage('', 'ai', true);
-
     const useStreaming = streamToggle.checked;
 
     try {
@@ -183,16 +325,20 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   });
 
-  // SSE Streaming via fetch + ReadableStream
   async function streamResponse(query, aiBubble) {
     const textContainer = aiBubble.querySelector('.message-bubble');
     textContainer.innerHTML = '<span class="typing-indicator"><span class="typing-dot"></span><span class="typing-dot"></span><span class="typing-dot"></span></span>';
 
     const response = await fetch('/api/chat/stream', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
       body: JSON.stringify({ query }),
     });
+
+    if (response.status === 401) {
+      clearAuthSession();
+      throw new Error('Session expired. Please sign in again.');
+    }
 
     if (!response.ok) {
       const err = await response.json().catch(() => ({}));
@@ -203,8 +349,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const decoder = new TextDecoder('utf-8');
     let accumulatedText = '';
     let isFirstChunk = true;
-
     let buffer = '';
+
     while (true) {
       const { done, value } = await reader.read();
       if (done) break;
@@ -216,7 +362,6 @@ document.addEventListener('DOMContentLoaded', () => {
       for (const line of lines) {
         if (line.startsWith('data:')) {
           let content = line.startsWith('data: ') ? line.slice(6) : line.slice(5);
-          // let content = line.slice(5);
           if (content.trim() === '[DONE]') continue;
           try {
             const parsed = JSON.parse(content);
@@ -247,16 +392,20 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }
 
-  // Standard Non-Streaming JSON Response
   async function fetchStandardResponse(query, aiBubble) {
     const textContainer = aiBubble.querySelector('.message-bubble');
     textContainer.innerHTML = '<span class="typing-indicator"><span class="typing-dot"></span><span class="typing-dot"></span><span class="typing-dot"></span></span>';
 
     const response = await fetch('/api/chat', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
       body: JSON.stringify({ query }),
     });
+
+    if (response.status === 401) {
+      clearAuthSession();
+      throw new Error('Session expired. Please sign in again.');
+    }
 
     if (!response.ok) {
       const err = await response.json().catch(() => ({}));
@@ -269,11 +418,9 @@ document.addEventListener('DOMContentLoaded', () => {
     messagesContainer.scrollTop = messagesContainer.scrollHeight;
   }
 
-  // Append a message row to chat
   function appendMessage(text, sender, isPlaceholder = false) {
     const row = document.createElement('div');
     row.className = `message-row ${sender}`;
-
     const timeStr = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 
     if (sender === 'user') {
@@ -299,7 +446,6 @@ document.addEventListener('DOMContentLoaded', () => {
     return row;
   }
 
-  // Health check on boot
   async function checkServerHealth() {
     try {
       const res = await fetch('/api/health');
@@ -318,7 +464,6 @@ document.addEventListener('DOMContentLoaded', () => {
   checkServerHealth();
   setInterval(checkServerHealth, 15000);
 
-  // Toast Notification Helper
   function showToast(message, type = 'info') {
     const toast = document.createElement('div');
     toast.className = `toast ${type}`;
