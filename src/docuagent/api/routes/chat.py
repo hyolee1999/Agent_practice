@@ -15,20 +15,22 @@ from docuagent.observability.langfuse import get_agent_config, context_manager
 
 router = APIRouter(prefix="/api", tags=["chat"])
 
-# Module-level cached agent for API worker process
+# Module-level cached agent fo r API worker process
 _api_agent = None
 
-def get_or_create_agent():
+def get_or_create_agent(**kwargs):
     """Lazily instantiate the RAG agent for the API server."""
     global _api_agent
     if _api_agent is None:
-        _api_agent = create_rag_agent(init_eval_metrics=True)
+        kwargs["init_eval_metrics"] = True
+        _api_agent = create_rag_agent(**kwargs)
         _context_manager = context_manager
     return _api_agent
 
 
 class ChatRequest(BaseModel):
     query: str
+    session_id: str
 
 
 class ChatResponse(BaseModel):
@@ -41,12 +43,13 @@ class ChatResponse(BaseModel):
 async def chat_endpoint(request: ChatRequest):
     """Standard non-streaming chat endpoint returning JSON."""
     query = request.query.strip()
+    thread_id = request.session_id
     if not query:
         raise HTTPException(status_code=400, detail="Query cannot be empty.")
 
     try:
         agent = get_or_create_agent()
-        answer = generate(query, agent, config=get_agent_config())
+        answer = generate(query, agent, config=get_agent_config(thread_id = thread_id))
         await eval_trace(question=query, answer=answer)
         return ChatResponse(query=query, response=answer)
     except Exception as e:
@@ -72,7 +75,7 @@ async def chat_stream_endpoint(
     async def event_generator() -> AsyncGenerator[str, None]:
         try:
             agent = get_or_create_agent()
-            config = get_agent_config()
+            config = get_agent_config(thread_id = request.session_id)
 
             full_answer = []
             for token in stream(user_query, agent, config=config):

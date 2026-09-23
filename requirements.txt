@@ -23,4 +23,5 @@ ragas
 sqlmodel
 pyjwt
 bcrypt
-psycopg2
+psycopg2-binary
+langgraph-checkpoint-redis

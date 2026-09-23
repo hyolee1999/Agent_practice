@@ -58,13 +58,35 @@ document.addEventListener('DOMContentLoaded', () => {
   function setAuthSession(token, user) {
     localStorage.setItem('access_token', token);
     localStorage.setItem('user_data', JSON.stringify(user));
+    localStorage.setItem('session_id', 'sess_' + Date.now() + '_' + Math.random().toString(36).substring(2, 9));
     updateAuthUI();
   }
 
   function clearAuthSession() {
     localStorage.removeItem('access_token');
     localStorage.removeItem('user_data');
+    localStorage.removeItem('session_id');
+
+    if (messagesContainer) {
+      messagesContainer.innerHTML = '';
+      if (welcomeContainer) {
+        messagesContainer.appendChild(welcomeContainer);
+        welcomeContainer.style.display = 'flex';
+      }
+    }
+
+    if (activeDocName) activeDocName.textContent = 'No document loaded';
+    if (activeDocSub) activeDocSub.textContent = 'Upload a PDF to begin indexing';
+    if (docStatusBadge) {
+      docStatusBadge.textContent = 'None';
+      docStatusBadge.style.color = 'var(--text-subtle)';
+    }
+
     updateAuthUI();
+  }
+
+  function getSessionId() {
+    return localStorage.getItem('session_id');
   }
 
   function getAuthHeaders(extraHeaders = {}) {
@@ -332,7 +354,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const response = await fetch('/api/chat/stream', {
       method: 'POST',
       headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
-      body: JSON.stringify({ query }),
+      body: JSON.stringify({ query, session_id: getSessionId() }),
     });
 
     if (response.status === 401) {
@@ -399,7 +421,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const response = await fetch('/api/chat', {
       method: 'POST',
       headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
-      body: JSON.stringify({ query }),
+      body: JSON.stringify({ query, session_id: getSessionId() }),
     });
 
     if (response.status === 401) {

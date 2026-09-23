@@ -11,6 +11,7 @@ from docuagent.agent.prompts import SYSTEM_PROMPT
 from docuagent.agent.tools import create_document_retriever_tool
 from docuagent.observability.langfuse import intercept_retriever
 from docuagent.observability.metrics import init_ragas_metrics, default_metrics
+from docuagent.db.memory import get_redis_checkpoint
 
 from dotenv import load_dotenv
 
@@ -43,7 +44,13 @@ def create_rag_agent(
     agent_tools = tools if tools is not None else [create_document_retriever_tool()]
 
     # Memory checkpointer
-    agent_checkpointer = checkpointer if checkpointer is not None else InMemorySaver()
+    if checkpointer:
+        agent_checkpointer = checkpointer
+    else:
+        try: 
+            agent_checkpointer = get_redis_checkpoint()
+        except:
+            agent_checkpointer = InMemorySaver()
 
     # Tool execution middleware (for Langfuse context capture)
     agent_middleware = middleware if middleware is not None else [intercept_retriever]

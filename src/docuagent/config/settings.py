@@ -1,6 +1,6 @@
 """Application settings and environment configuration."""
 
-from typing import Optional
+from typing import Optional, Dict, Any
 from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
@@ -45,6 +45,15 @@ class Settings(BaseSettings):
 
     # Database URL
     database_url: str = Field(default="postgresql://khoa:supersecret@localhost:5433/khoa_db", alias="DATABASE_URL")
+
+    # Memory URL
+    redis_url: str = Field(default="redis://localhost:6380", alias="REDIS_URL")
+    ttl_config: Dict[str, Any] = Field(
+        default_factory=lambda: {
+            "default_ttl": 60,         # Expire checkpoints after 60 minutes
+            "refresh_on_read": True,   # Reset expiration time when reading checkpoints
+        }
+    )
 
     # Security
     secret_key: str = Field(default="docuagent-dev-secret-change-in-production", alias="SECRET_KEY")

@@ -23,6 +23,7 @@ This project provides **two distinct deployment versions** sharing the same unif
   - `answer_relevancy` (question alignment)
   - `llm_context_precision_without_reference` (retrieval precision)
 - **User Authentication & Session Security**: Full JWT bearer authentication with bcrypt password hashing, PostgreSQL/SQLite backing via SQLModel, and persistent client-side session management (`localStorage`).
+- **Redis Checkpointed Memory**: Conversation state and message history checkpointers powered by `langgraph-checkpoint-redis` with configurable TTL (`default_ttl`, `refresh_on_read`), preserving conversation context across server reloads and isolating sessions.
 - **Clean Architecture**: Domain logic is 100% decoupled from presentation layers — neither Streamlit nor FastAPI leaks runtime dependencies into the core business logic.
 
 ---
@@ -46,10 +47,11 @@ Agent_practice_clean/
 │   ├── main.py                            # Backward-compatibility import shim
 │   ├── main_page.py                       # Backward-compatibility Streamlit shim
 │   └── docuagent/                         # Core Python Package
-│       ├── config/                        # Pydantic BaseSettings (.env loading)
+│       ├── config/                        # Pydantic BaseSettings (.env loading & TTL config)
 │       │   └── settings.py
-│       ├── db/                            # SQLModel database engine & User models
-│       │   └── database.py
+│       ├── db/                            # Database & Memory management
+│       │   ├── database.py                # SQLModel engine & User model
+│       │   └── memory.py                  # Redis checkpointer (ShallowRedisSaver)
 │       ├── ingestion/                     # PDF loading & semantic/fixed chunking
 │       │   ├── loader.py
 │       │   ├── chunker.py
@@ -89,18 +91,22 @@ Agent_practice_clean/
 - [`uv`](https://docs.astral.sh/uv/) (recommended for dependency management)
 - Running [Qdrant](https://qdrant.tech/) instance
 - Running [PostgreSQL](https://www.postgresql.org/) database (or fallback to local SQLite)
+- Running [Redis](https://redis.io/) instance (for conversation checkpointer & session memory)
 - (Optional) Running [Langfuse](https://langfuse.com/) instance for telemetry
 
 ### Start Services with Docker:
 
 ```bash
-# 1. Start Qdrant
+# 1. Start Qdrant (Vector Database)
 docker run -d --name qdrant -p 6333:6333 -p 6334:6334 qdrant/qdrant
 
-# 2. Start PostgreSQL (Default auth database)
-docker run -d --name postgres -e POSTGRES_USER=khoa -e POSTGRES_PASSWORD=supersecret -e POSTGRES_DB=khoa_db -p 5433:5432 postgres:16-alpine
+# 2. Start PostgreSQL (User Authentication & Accounts)
+docker run -d --name docuagent-postgres -e POSTGRES_USER=khoa -e POSTGRES_PASSWORD=supersecret -e POSTGRES_DB=khoa_db -p 5433:5432 postgres:16-alpine
 
-# 3. (Optional) Start Langfuse self-hosted
+# 3. Start Redis (Conversation Memory Checkpointer)
+docker run -d --name docuagent-redis -p 6380:6379 redis:7-alpine
+
+# 4. (Optional) Start Langfuse self-hosted
 # See https://langfuse.com/docs/deployment/local
 ```
 
@@ -139,6 +145,9 @@ docker run -d --name postgres -e POSTGRES_USER=khoa -e POSTGRES_PASSWORD=superse
    # Database (PostgreSQL or SQLite fallback "sqlite:///./docuagent.db")
    DATABASE_URL=postgresql://khoa:supersecret@localhost:5433/khoa_db
 
+   # Redis Memory & Checkpointer
+   REDIS_URL=redis://localhost:6380
+
    # Security & JWT Tokens
    SECRET_KEY=docuagent-dev-secret-change-in-production
    ALGORITHM=HS256
@@ -173,7 +182,7 @@ uv run streamlit run src/docuagent/ui/app.py
 ---
 
 ### Version 2: FastAPI Backend (Actual Implementation & API Serving)
-> **Use Case**: Production implementation providing asynchronous REST APIs, Server-Sent Events (SSE) streaming token output, user authentication, and serving the interactive web frontend.
+> **Use Case**: Production implementation providing asynchronous REST APIs, Server-Sent Events (SSE) streaming token output, user authentication, Redis conversation persistence, and serving the interactive web frontend.
 
 ```bash
 uv run uvicorn main:app --reload --port 8000
@@ -190,12 +199,12 @@ uv run uvicorn main:app --reload --port 8000
 
 | Method | Endpoint | Description |
 |---|---|---|
-| `POST` | `/api/auth/register` | Register new account and receive JWT access token |
+| `POST` | `/api/auth/register` | Register new account, hash password with bcrypt, return JWT token |
 | `POST` | `/api/auth/login` | Authenticate credentials and return JWT bearer token |
-| `POST` | `/api/chat` | Synchronous JSON chat (`{"query": "..."}`) |
+| `POST` | `/api/chat` | Synchronous JSON chat (`{"query": "...", "session_id": "..."}`) |
 | `POST` / `GET` | `/api/chat/stream` | Server-Sent Events (SSE) streaming token output |
 | `POST` | `/api/upload` | Upload PDF file and index into Qdrant |
-| `POST` | `/api/clear` | Reset active conversation session |
+| `POST` | `/api/clear` | Reset active conversation session in Redis |
 | `GET` | `/api/health` | Service health status |
 | `GET` | `/docs` | OpenAPI / Swagger interactive documentation |
 
@@ -230,6 +239,8 @@ Settings are managed via `pydantic-settings` in [src/docuagent/config/settings.p
 | `rerank_model` | — | `rerank-english-v3.0` | Cohere reranker |
 | `top_k` | `TOP_K` | `4` | Retrieval candidate count |
 | `database_url` | `DATABASE_URL` | `postgresql://...` | PostgreSQL or SQLite database URI |
+| `redis_url` | `REDIS_URL` | `redis://localhost:6380` | Redis memory checkpointer endpoint |
+| `ttl_config` | — | `{"default_ttl": 60, "refresh_on_read": True}` | Redis checkpoint expiration in minutes |
 | `secret_key` | `SECRET_KEY` | `docuagent-dev-secret...` | JWT signature encryption secret |
 | `algorithm` | `ALGORITHM` | `HS256` | JWT signing algorithm |
 | `access_token_expire_minutes` | `ACCESS_TOKEN_EXPIRE_MINUTES` | `1440` | JWT token validity lifespan (minutes) |
